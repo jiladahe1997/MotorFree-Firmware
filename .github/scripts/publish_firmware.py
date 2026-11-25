@@ -9,6 +9,7 @@ import struct
 import subprocess
 import sys
 from tempfile import TemporaryDirectory
+from time import sleep
 
 
 REPO = "jiladahe1997/MotorFree-Firmware"
@@ -124,10 +125,24 @@ def publish(image, delivery_tag):
     print(f"Published MotorFree firmware v{version}: {url}")
 
 
+def publish_with_retry(image, delivery_tag):
+    for attempt, delay in enumerate((0, 4, 12)):
+        if delay:
+            sleep(delay)
+        try:
+            publish(image, delivery_tag)
+            return
+        except (RuntimeError, subprocess.TimeoutExpired) as error:
+            transient = isinstance(error, subprocess.TimeoutExpired) or re.search(r"\bHTTP 5[0-9]{2}\b", str(error))
+            if not transient or attempt == 2:
+                raise
+            print(f"GitHub request failed. Retrying firmware publication: {error}", file=sys.stderr)
+
+
 if __name__ == "__main__":
     if len(sys.argv) != 3:
         sys.exit("Usage: publish_firmware.py signed-motorfree.bin delivery-tag")
     try:
-        publish(Path(sys.argv[1]).read_bytes(), sys.argv[2])
+        publish_with_retry(Path(sys.argv[1]).read_bytes(), sys.argv[2])
     except (OSError, ValueError, RuntimeError, subprocess.SubprocessError) as error:
         sys.exit(f"MotorFree firmware publish failed: {error}")
