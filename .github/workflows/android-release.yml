@@ -1,0 +1,53 @@
+name: Publish MotorFree Android APK
+
+on:
+  push:
+    tags:
+      - 'android-inbox-v*'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: motorfree-android-release
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: github.event.created && !github.event.deleted
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: main
+          persist-credentials: false
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Read signed APK from delivery
+        id: delivery
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ ! "$GITHUB_REF_NAME" =~ ^android-inbox-v([0-9]+\.[0-9]+\.[0-9]+)-[0-9]+-[0-9]+$ ]]; then
+            echo "::error::Invalid Android delivery tag."
+            exit 1
+          fi
+          echo "version=${BASH_REMATCH[1]}" >> "$GITHUB_OUTPUT"
+          git fetch --no-tags --depth 1 origin "$GITHUB_SHA"
+          git show FETCH_HEAD:android-inbox/MotorFree.apk > "$RUNNER_TEMP/MotorFree.apk"
+      - name: Verify and publish Android update
+        env:
+          GH_TOKEN: ${{ github.token }}
+          APK_VERSION: ${{ steps.delivery.outputs.version }}
+        run: |
+          if [[ ! -x "$ANDROID_HOME/build-tools/35.0.0/apksigner" ]]; then
+            "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" 'build-tools;35.0.0'
+          fi
+          python3 .github/scripts/publish_android.py "$RUNNER_TEMP/MotorFree.apk" "$APK_VERSION"
+      - name: Clear completed delivery tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh api --method DELETE "repos/$GITHUB_REPOSITORY/git/refs/tags/$GITHUB_REF_NAME"
