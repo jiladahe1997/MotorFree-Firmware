@@ -31,6 +31,7 @@ jobs:
           set -euo pipefail
           git fetch --no-tags --depth 1 origin "$GITHUB_SHA"
           git show FETCH_HEAD:firmware-inbox/motorfree.bin > "$RUNNER_TEMP/motorfree.bin"
+          git show FETCH_HEAD:firmware-inbox/motorfree-factory.bin > "$RUNNER_TEMP/motorfree-factory.bin"
       - name: Verify enrolled firmware signature
         run: |
           python -m pip install 'esptool==4.14.0'
@@ -39,7 +40,9 @@ jobs:
       - name: Publish newer firmware for Android OTA
         env:
           GH_TOKEN: ${{ github.token }}
-        run: python .github/scripts/publish_firmware.py "$RUNNER_TEMP/motorfree.bin" "$GITHUB_REF_NAME"
+        run: |
+          python .github/scripts/publish_firmware.py "$RUNNER_TEMP/motorfree.bin" \
+            "$RUNNER_TEMP/motorfree-factory.bin" "$GITHUB_REF_NAME"
       - name: Clear completed delivery tag
         env:
           GH_TOKEN: ${{ github.token }}
