@@ -1,0 +1,46 @@
+name: Publish MotorFree ESP32 firmware
+
+on:
+  push:
+    tags:
+      - 'firmware-inbox-v*'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: motorfree-firmware-release
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: github.event.created && !github.event.deleted
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: main
+          persist-credentials: false
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.11'
+      - name: Read signed firmware from delivery
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --depth 1 origin "$GITHUB_SHA"
+          git show FETCH_HEAD:firmware-inbox/motorfree.bin > "$RUNNER_TEMP/motorfree.bin"
+      - name: Verify enrolled firmware signature
+        run: |
+          python -m pip install 'esptool==4.14.0'
+          python -m espsecure verify_signature --version 2 \
+            --keyfile .github/motorfree-firmware-public.pem "$RUNNER_TEMP/motorfree.bin"
+      - name: Publish newer firmware for Android OTA
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python .github/scripts/publish_firmware.py "$RUNNER_TEMP/motorfree.bin" "$GITHUB_REF_NAME"
+      - name: Clear completed delivery tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh api --method DELETE "repos/$GITHUB_REPOSITORY/git/refs/tags/$GITHUB_REF_NAME"
