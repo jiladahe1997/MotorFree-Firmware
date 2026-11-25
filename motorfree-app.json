@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
   "package_name": "com.motorfree.bletest",
-  "version": "0.4.4",
-  "version_code": 10,
-  "tag": "app-v0.4.4",
+  "version": "0.4.5",
+  "version_code": 11,
+  "tag": "app-v0.4.5",
   "filename": "MotorFree.apk",
-  "size": 78214,
-  "sha256": "4966fdafea6aba1eb04d2c13dd2557ecf7b1c2c980198be9ef6d1a45a2ce4898"
+  "size": 78658,
+  "sha256": "5b7edbe91c574315ab015ecfe812e9b86fca1af870eb51e9663a68256525d227"
 }
